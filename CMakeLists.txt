@@ -16,12 +16,19 @@ option(GALAX_LINK_OMP  "Link with the OMP  library (used for CPU_FAST model)"   
 # Enable C++11
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+add_compile_options(-Ofast -march=native -ftree-vectorize)
 
 # Specify bin path
 set (EXECUTABLE_OUTPUT_PATH bin/)
 
 if(WIN32)
-    set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/")
+    list(APPEND CMAKE_PREFIX_PATH "modules/SDL2-2.30.11/")
+    list(APPEND CMAKE_PREFIX_PATH "modules/freeglut-3.6.0/")
+    list(APPEND CMAKE_PREFIX_PATH "modules/mingw64/")
+    list(APPEND CMAKE_PREFIX_PATH "modules/glew/")
+    list(APPEND CMAKE_PREFIX_PATH "modules/doxygen/")
+
+
 endif()
 
 # Generate the source files lists
@@ -102,15 +109,21 @@ if(GALAX_LINK_CUDA)
     endif(CUDA_FOUND)
 endif(GALAX_LINK_CUDA)
 
+if(GALAX_LINK_FAST_CPU)
+    target_compile_definitions(galax         PUBLIC GALAX_MODEL_CPU_FAST)
+endif(GALAX_LINK_FAST_CPU)
+
+
 if(GALAX_LINK_SDL2)
     target_compile_definitions(galax_display PUBLIC GALAX_DISPLAY_SDL2)
     target_compile_definitions(galax         PUBLIC GALAX_DISPLAY_SDL2)
 
     # Find OpenGL
-    find_package(OpenGL REQUIRED QUIET)
+    find_package(OpenGL REQUIRED)
     if(OPENGL_FOUND)
         message(STATUS "Galax - Library found: OPENGL")
-        include_directories(PUBLIC "${OPENGL_INCLUDE_DIR}")
+        message(STATUS ${OPENGL_INCLUDE_DIR})
+        #include_directories(PUBLIC "${OPENGL_INCLUDE_DIR}")
         target_link_libraries(galax_display PUBLIC ${OPENGL_LIBRARIES})
     endif(OPENGL_FOUND)
 

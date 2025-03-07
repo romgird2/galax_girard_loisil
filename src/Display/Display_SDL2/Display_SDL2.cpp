@@ -1,3 +1,5 @@
+#include <cmath>
+#include <cstdio>
 #ifdef GALAX_DISPLAY_SDL2
 
 #include "Display_SDL2.hpp"
@@ -130,7 +132,7 @@ void Display_SDL2
 	for (int i = 0; i < particles.x.size(); i++)
 	{
 		glBegin   (GL_POINTS);
-		glColor3f (1.0f, 1.0f, 1.0f);
+        glColor3f (1.0f, 1.0f, 1.0f);
 		glVertex3f(particles.x[i], particles.y[i], particles.z[i]);
 		glEnd();
 	}

@@ -31,10 +31,10 @@ int main(int argc, char ** argv)
 #endif
 
 	// core version used by default : CPU
-	std::string  core         = "CPU";
+    std::string  core         = "CPU";
 
 	// number of particles used by default : 2000
-	unsigned int n_particles  = 2000;
+    unsigned int n_particles  = 10000;
 
         // decide wether to check particle position against the reference or not
         bool validatePositions = false;
