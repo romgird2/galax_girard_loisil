@@ -1,8 +1,8 @@
 #include "Display.hpp"
 
 Display
-::Display(Particles& particles)
-: particles(particles)
+::Display(Particule *particules,Cluster *clusters)
+    : particules(particules),clusters(clusters)
 {
 }
 

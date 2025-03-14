@@ -5,8 +5,8 @@
 #include "Display_SDL2.hpp"
 
 Display_SDL2
-::Display_SDL2(Particles& particles)
-: Display(particles)
+::Display_SDL2(Particule *particules,Cluster *clusters)
+: Display(particules,clusters)
 {
 	SDL_DisplayMode current;
 
@@ -48,6 +48,38 @@ Display_SDL2::~Display_SDL2()
 	SDL_GL_DeleteContext(glWindow);
 	SDL_DestroyWindow(window);
 	SDL_Quit();
+}
+struct Color {
+    float r, g, b;
+};
+
+Color generate_color(int id, int max_id) {
+    float hue = (static_cast<float>(id) * 360.0f) / static_cast<float>(max_id);
+    float saturation = 0.8f;
+    float value = 0.95f;
+
+    float c = value * saturation;
+    float h_prime = hue / 60.0f;
+    float x = c * (1.0f - std::abs(std::fmod(h_prime, 2.0f) - 1.0f));
+    float m = value - c;
+
+    int i = static_cast<int>(h_prime) % 6;
+    float r, g, b;
+
+    switch (i) {
+    case 0: r = c; g = x; b = 0; break;
+    case 1: r = x; g = c; b = 0; break;
+    case 2: r = 0; g = c; b = x; break;
+    case 3: r = 0; g = x; b = c; break;
+    case 4: r = x; g = 0; b = c; break;
+    default: r = c; g = 0; b = x; break;
+    }
+
+    r += m;
+    g += m;
+    b += m;
+
+    return {r, g, b};
 }
 
 void Display_SDL2
@@ -129,13 +161,23 @@ void Display_SDL2
 	if (g_showAxes)
 		ShowAxes();
 
-	for (int i = 0; i < particles.x.size(); i++)
-	{
-		glBegin   (GL_POINTS);
-        glColor3f (1.0f, 1.0f, 1.0f);
-		glVertex3f(particles.x[i], particles.y[i], particles.z[i]);
-		glEnd();
-	}
+    for(int i = 0;i != NB_MAX_CLUSTER;++i)
+    {
+        Cluster &cluster = clusters[i];
+        float t = NB_MAX_CLUSTER > 1 ? (float) i / (NB_MAX_CLUSTER-1) : 0.5;
+        Color color = generate_color(i,NB_MAX_CLUSTER);
+        for(int j = 0;j != cluster.nb_particules;++j)
+        {
+            Particule &particule = particules[cluster.particules[j]];
+            glBegin   (GL_POINTS);
+            glColor3f (color.r, color.g, color.b);
+            glVertex3f(particule.position.x, particule.position.y, particule.position.z);
+            glEnd();
+
+        }
+    }
+
+
 
 	glMatrixMode  (GL_PROJECTION);
 	glLoadIdentity();

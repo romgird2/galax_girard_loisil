@@ -35,7 +35,7 @@ private:
 	SDL_Window*   window;
 
 public:
-	Display_SDL2(Particles& particles);
+    Display_SDL2(Particule *particules,Cluster *clusters);
 	~Display_SDL2();
 
 	virtual void update(bool& done);

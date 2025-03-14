@@ -1,16 +1,16 @@
 #ifndef DISPLAY_HPP_
 #define DISPLAY_HPP_
 
-#include <vector>
 #include "../Particles.hpp"
 
 class Display
 {
 protected:
-	Particles& particles;
+    Particule *particules;
+    Cluster *clusters;
 
 public:
-	Display(Particles& particles);
+    Display(Particule *particules,Cluster *clusters);
 	~Display();
 
 	virtual void update(bool& done) = 0;

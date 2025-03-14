@@ -36,9 +36,15 @@ set(SRC_FILES_CUDA    ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model_GPU/kernel.cu
                       ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model_GPU/Model_GPU.cpp)
 
 set(SRC_FILES_DISPLAY ${CMAKE_CURRENT_SOURCE_DIR}/src/Display/Display.cpp
+                      ${CMAKE_CURRENT_SOURCE_DIR}/src/Display/Display.hpp
                       ${CMAKE_CURRENT_SOURCE_DIR}/src/Display/Display_SDL2/Display_SDL2.cpp
+                      ${CMAKE_CURRENT_SOURCE_DIR}/src/Display/Display_SDL2/Display_SDL2.hpp
+
                       ${CMAKE_CURRENT_SOURCE_DIR}/src/Display/Display_NO/Display_NO.cpp
-                      ${CMAKE_CURRENT_SOURCE_DIR}/src/Particles.cpp)
+                      ${CMAKE_CURRENT_SOURCE_DIR}/src/Display/Display_NO/Display_NO.hpp
+                      ${CMAKE_CURRENT_SOURCE_DIR}/src/Particles.cpp
+                      ${CMAKE_CURRENT_SOURCE_DIR}/src/Particles.hpp
+                  )
 
 set(SRC_FILES_MAIN    ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model.cpp
                       ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model_CPU/Model_CPU.cpp
@@ -47,7 +53,19 @@ set(SRC_FILES_MAIN    ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model.cpp
                       ${CMAKE_CURRENT_SOURCE_DIR}/src/Initstate.cpp
                       ${CMAKE_CURRENT_SOURCE_DIR}/src/Timing/Timing.cpp
                       ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
-
+                  set(SRC_FILES_MAIN    ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model.cpp
+                                        ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model.hpp
+                                        ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model_CPU/Model_CPU.cpp
+                                        ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model_CPU/Model_CPU.hpp
+                                        ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model_CPU/Model_CPU_naive/Model_CPU_naive.cpp
+                                        ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model_CPU/Model_CPU_fast/Model_CPU_fast.cpp
+                                        ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model_CPU/Model_CPU_naive/Model_CPU_naive.hpp
+                                        ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model_CPU/Model_CPU_fast/Model_CPU_fast.hpp
+                                        ${CMAKE_CURRENT_SOURCE_DIR}/src/Initstate.cpp
+                                        ${CMAKE_CURRENT_SOURCE_DIR}/src/Initstate.hpp
+                                        ${CMAKE_CURRENT_SOURCE_DIR}/src/Timing/Timing.cpp
+                                        ${CMAKE_CURRENT_SOURCE_DIR}/src/Timing/Timing.hpp
+                                        ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/config.hpp.in" "${CMAKE_CURRENT_BINARY_DIR}/src/config.hpp" @ONLY)
 include_directories (PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/src/")
 
@@ -56,7 +74,8 @@ add_library (galax_display SHARED ${SRC_FILES_DISPLAY})
 if(GALAX_LINK_CUDA)
     add_library (galax_cuda SHARED ${SRC_FILES_CUDA})
 endif(GALAX_LINK_CUDA)
-add_executable(galax ${SRC_FILES_MAIN})
+add_executable(galax ${SRC_FILES_MAIN}
+)
 
 # cli
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/lib/cli/include/CLI/CLI.hpp")

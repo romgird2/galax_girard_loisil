@@ -10,7 +10,7 @@ class Display_NO : public Display
 private:
     static bool interrupt_received;
 public:
-	Display_NO(Particles& particles);
+    Display_NO(Particule *particules,Cluster *clusters);
 	~Display_NO();
 
 	virtual void update(bool& done);

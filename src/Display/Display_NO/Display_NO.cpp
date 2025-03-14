@@ -5,8 +5,8 @@
 bool Display_NO::interrupt_received = false;
 
 Display_NO
-::Display_NO(Particles& particles)
-: Display(particles)
+::Display_NO(Particule *particules,Cluster *clusters)
+: Display(particules,clusters)
 {
 #if !defined(_WIN64) && !defined(_WIN32)
 	std::signal(SIGUSR1, Display_NO::signal_interrupt_handler);

@@ -65,39 +65,33 @@ int main(int argc, char ** argv)
 	Particles particlesRef(n_particles);
 
 	// init display
-	std::unique_ptr<Display> display;
-	if (display_type == "NO")
-		display = std::unique_ptr<Display>(new Display_NO(particles));
-#ifdef GALAX_DISPLAY_SDL2
-	else if (display_type == "SDL2")
-		display = std::unique_ptr<Display>(new Display_SDL2(particles));
-#endif
-	else // TODO : add exception
-		exit(EXIT_FAILURE);
+
 
 	// init models
-	std::unique_ptr<Model> model, referenceModel;
+    std::unique_ptr<Model_CPU_fast> model;
+    std::unique_ptr<Model> referenceModel;
 
-        if(validatePositions)
+    if(validatePositions)
 		referenceModel = std::make_unique<Model_CPU_naive>(initstate, particlesRef);
 
-	if (core == "CPU")
-		model = std::make_unique<Model_CPU_naive>(initstate, particles);
-#ifdef GALAX_MODEL_CPU_FAST
-	else if (core == "CPU_FAST")
-		model = std::make_unique<Model_CPU_fast>(initstate, particles);
+    model = std::make_unique<Model_CPU_fast>(initstate, particles);
+
+    std::unique_ptr<Display> display;
+    if (display_type == "NO")
+        display = std::unique_ptr<Display>(new Display_NO(model->particules,model->clusters));
+#ifdef GALAX_DISPLAY_SDL2
+    else if (display_type == "SDL2")
+        display = std::unique_ptr<Display>(new Display_SDL2(model->particules,model->clusters));
 #endif
-#ifdef GALAX_MODEL_GPU
-	else if (core == "GPU")
-		model = std::make_unique<Model_GPU>(initstate, particles);
-#endif
-	else // TODO : add exception
-		exit(EXIT_FAILURE);
+    else // TODO : add exception
+        exit(EXIT_FAILURE);
 
 	bool done = false;
 
 	std::cout << std::setw(3);
 
+    double sum_fps = 0;
+    int nb_fps = 0;
 	while (!done)
 	{
 		// display particles
@@ -108,12 +102,15 @@ int main(int argc, char ** argv)
 		timing.sample_before();
 
 		// update particles positions
-		model  ->step();
+        //model  ->step();
 
 		timing.sample_after();
 		float fps = timing.get_current_average_FPS();
 
 		std::cout << "State updates per second: " << fps;
+        sum_fps += fps;
+        nb_fps++;
+        std::cout << "  average:" << sum_fps/nb_fps;
 
 		if(validatePositions)
 		{
