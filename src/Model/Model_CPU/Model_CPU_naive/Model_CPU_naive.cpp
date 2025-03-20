@@ -3,7 +3,7 @@
 #include "Model_CPU_naive.hpp"
 
 Model_CPU_naive
-::Model_CPU_naive(const Initstate& initstate, Particles& particles)
+::Model_CPU_naive(const Initstate& initstate, Particule *particles)
 : Model_CPU(initstate, particles)
 {
 }
@@ -11,21 +11,19 @@ Model_CPU_naive
 void Model_CPU_naive
 ::step()
 {
-	std::fill(accelerationsx.begin(), accelerationsx.end(), 0);
-	std::fill(accelerationsy.begin(), accelerationsy.end(), 0);
-	std::fill(accelerationsz.begin(), accelerationsz.end(), 0);
+    for(int i = 0;i != NB_PARTICLES;++i)
+    {
+        particules[i].acceleration.set(0,0,0);
+    }
 
-	for (int i = 0; i < n_particles; i++)
+    for (int i = 0; i < NB_PARTICLES; i++)
 	{
-		for (int j = 0; j < n_particles; j++)
+        for (int j = 0; j < NB_PARTICLES; j++)
 		{
 			if(i != j)
 			{
-				const float diffx = particles.x[j] - particles.x[i];
-				const float diffy = particles.y[j] - particles.y[i];
-				const float diffz = particles.z[j] - particles.z[i];
-
-				float dij = diffx * diffx + diffy * diffy + diffz * diffz;
+                Vector3 diff = particules[i].position-particules[j].position;
+                float dij = diff.normSquared();
 
 				if (dij < 1.0)
 				{
@@ -37,20 +35,14 @@ void Model_CPU_naive
 					dij = 10.0 / (dij * dij * dij);
 				}
 
-				accelerationsx[i] += diffx * dij * initstate.masses[j];
-				accelerationsy[i] += diffy * dij * initstate.masses[j];
-				accelerationsz[i] += diffz * dij * initstate.masses[j];
+                particules[i].acceleration += diff * dij * particules[j].mass;
 			}
 		}
 	}
 
-	for (int i = 0; i < n_particles; i++)
+    for (int i = 0; i < NB_PARTICLES; i++)
 	{
-		velocitiesx[i] += accelerationsx[i] * 2.0f;
-		velocitiesy[i] += accelerationsy[i] * 2.0f;
-		velocitiesz[i] += accelerationsz[i] * 2.0f;
-		particles.x[i] += velocitiesx   [i] * 0.1f;
-		particles.y[i] += velocitiesy   [i] * 0.1f;
-		particles.z[i] += velocitiesz   [i] * 0.1f;
+        particules[i].velocity += particules[i].acceleration*2;
+        particules[i].position += particules[i].velocity * 0.1;
 	}
 }

@@ -9,14 +9,13 @@
 
 class Model
 {
-protected:
+public:
     const Initstate& initstate;
-    const int n_particles;
 
-    Particles& particles;
+    Particule *particules;
 
 public:
-    Model(const Initstate& initstate, Particles& particles);
+    Model(const Initstate& initstate, Particule *particules);
 
     std::tuple<float, float, float> compareParticlesState(const Model& reference, bool returnRelativeDistances = false);
 

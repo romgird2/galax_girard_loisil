@@ -80,17 +80,9 @@ void separate_particles(const Particule* particles,Cluster *clusters,std::vector
 }
 
 
-Model_CPU_fast::Model_CPU_fast(const Initstate& initstate, Particles& particles)
+Model_CPU_fast::Model_CPU_fast(const Initstate& initstate, Particule *particles)
 : Model_CPU(initstate, particles)
 {
-    for(int i = 0;i != NB_PARTICLES;++i)
-    {
-        Particule &particule = particules[i];
-        particule.position.set(initstate.positionsx.at(i),initstate.positionsy.at(i),initstate.positionsz.at(i));
-        particule.velocity.set(initstate.velocitiesx.at(i)*0.1f,initstate.velocitiesy.at(i)*0.1f,initstate.velocitiesz.at(i)*0.1f);
-        particule.mass = initstate.masses.at(i);
-    }
-
 
 
     for(int i = 0;i != NB_TOTAL_CLUSTER;++i)
@@ -292,9 +284,6 @@ std::cout << "max radius is " << max_radius << std::endl;
         Particule& particule = particules[i];
         particule.velocity += particule.acceleration;
         particule.position += particule.velocity;
-        particles.x.at(i) = particule.position.x;
-        particles.y.at(i) = particule.position.y;
-        particles.z.at(i) = particule.position.z;
     }
 }
 

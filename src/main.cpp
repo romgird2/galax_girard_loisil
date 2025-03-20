@@ -61,8 +61,8 @@ int main(int argc, char ** argv)
 	Initstate initstate(n_particles);
 
 	// particles positions
-	Particles particles(n_particles);
-	Particles particlesRef(n_particles);
+    Particule particules[n_particles];
+    Particule particulesRef[n_particles];
 
 	// init display
 
@@ -72,9 +72,9 @@ int main(int argc, char ** argv)
     std::unique_ptr<Model> referenceModel;
 
     if(validatePositions)
-		referenceModel = std::make_unique<Model_CPU_naive>(initstate, particlesRef);
+        referenceModel = std::make_unique<Model_CPU_naive>(initstate, &particulesRef[0]);
 
-    model = std::make_unique<Model_CPU_fast>(initstate, particles);
+    model = std::make_unique<Model_CPU_fast>(initstate, &particules[0]);
 
     std::unique_ptr<Display> display;
     if (display_type == "NO")

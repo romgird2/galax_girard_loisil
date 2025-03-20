@@ -6,7 +6,7 @@
 class Model_CPU_naive : public Model_CPU
 {
 public:
-    Model_CPU_naive(const Initstate& initstate, Particles& particles);
+    Model_CPU_naive(const Initstate& initstate, Particule *particles);
 
     virtual ~Model_CPU_naive() = default;
 

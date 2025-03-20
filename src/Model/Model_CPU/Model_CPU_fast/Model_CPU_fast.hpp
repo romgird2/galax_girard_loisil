@@ -118,7 +118,7 @@ public:
 class Model_CPU_fast : public Model_CPU
 {
 public:
-    Model_CPU_fast(const Initstate& initstate, Particles& particles);
+    Model_CPU_fast(const Initstate& initstate, Particule *particles);
 
     virtual ~Model_CPU_fast() = default;
 
@@ -127,7 +127,6 @@ public:
 
     Thread_Composition threads[NB_THREAD];
     Cluster clusters[NB_TOTAL_CLUSTER];
-    Particule particules[NB_PARTICLES];
     int first_empty_cluster;
 
     float distance_matrix_clusters[NB_TOTAL_CLUSTER][NB_TOTAL_CLUSTER];

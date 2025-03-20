@@ -2,23 +2,13 @@
 
 #include "Model_CPU.hpp"
 
-Model_CPU
-::Model_CPU(const Initstate& initstate, Particles& particles)
-: Model(initstate, particles),
-  velocitiesx   (n_particles),
-  velocitiesy   (n_particles),
-  velocitiesz   (n_particles),
-  accelerationsx(n_particles),
-  accelerationsy(n_particles),
-  accelerationsz(n_particles)
+Model_CPU::Model_CPU(const Initstate& initstate, Particule *particules)
+: Model(initstate, particules)
 {
-	for (int i = 0; i < n_particles; i++)
+    for (int i = 0; i < NB_PARTICLES; i++)
 	{
-		particles.x[i] = initstate.positionsx[i];
-		particles.y[i] = initstate.positionsy[i];
-		particles.z[i] = initstate.positionsz[i];
-	}
-    std::copy(initstate.velocitiesx.begin(), initstate.velocitiesx.end(), velocitiesx.begin());
-    std::copy(initstate.velocitiesy.begin(), initstate.velocitiesy.end(), velocitiesy.begin());
-    std::copy(initstate.velocitiesz.begin(), initstate.velocitiesz.end(), velocitiesz.begin());
+        particules[i].position.set(initstate.positionsx[i],initstate.positionsy[i],initstate.positionsz[i]);
+        particules[i].velocity.set(initstate.velocitiesx[i]*0.2,initstate.velocitiesy[i]*0.2,initstate.velocitiesz[i]*0.2);
+        particules[i].mass = initstate.masses[i];
+    }
 }
