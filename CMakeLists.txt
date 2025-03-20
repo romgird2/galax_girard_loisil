@@ -14,7 +14,7 @@ option(GALAX_LINK_CUDA "Link with the CUDA library (used for GPU model)"        
 option(GALAX_LINK_OMP  "Link with the OMP  library (used for CPU_FAST model)"    OFF)
 
 # Enable C++11
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_compile_options(-Ofast -march=native -ftree-vectorize)
 

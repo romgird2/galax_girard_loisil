@@ -21,7 +21,7 @@ int main(int argc, char ** argv)
 	CLI::App app{"Galax"};
 
 	// maximum number of particles to be simulated
-	const int max_n_particles = 81920;
+    const int max_n_particles = NB_PARTICLES;
 
 	// according to compile option (in cmake), use a graphical display or don't
 #ifdef GALAX_DISPLAY_SDL2
@@ -102,7 +102,8 @@ int main(int argc, char ** argv)
 		timing.sample_before();
 
 		// update particles positions
-        //model  ->step();
+        //_sleep(1000);
+        model->step();
 
 		timing.sample_after();
 		float fps = timing.get_current_average_FPS();

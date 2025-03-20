@@ -161,11 +161,11 @@ void Display_SDL2
 	if (g_showAxes)
 		ShowAxes();
 
-    for(int i = 0;i != NB_MAX_CLUSTER;++i)
+    for(int i = 0;i != NB_TOTAL_CLUSTER;++i)
     {
         Cluster &cluster = clusters[i];
-        float t = NB_MAX_CLUSTER > 1 ? (float) i / (NB_MAX_CLUSTER-1) : 0.5;
-        Color color = generate_color(i,NB_MAX_CLUSTER);
+        float t = NB_TOTAL_CLUSTER > 1 ? (float) i / (NB_TOTAL_CLUSTER-1) : 0.5;
+        Color color = generate_color(i,NB_TOTAL_CLUSTER);
         for(int j = 0;j != cluster.nb_particules;++j)
         {
             Particule &particule = particules[cluster.particules[j]];
