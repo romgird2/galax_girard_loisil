@@ -5,8 +5,8 @@
 #include "Display_SDL2.hpp"
 
 Display_SDL2
-::Display_SDL2(Particule *particules,Cluster *clusters)
-: Display(particules,clusters)
+::Display_SDL2(Model_CPU_fast *model)
+: Display(model)
 {
 	SDL_DisplayMode current;
 
@@ -80,6 +80,54 @@ Color generate_color(int id, int max_id) {
     b += m;
 
     return {r, g, b};
+}
+
+void display_particules(OctTree &tree,Color& color,int &nb)
+{
+    if(tree.leaf)
+    {
+        for(int i = 0;i != tree.nb_particules;++i)
+        {
+            Particule &particule = OctTree::particules[tree.particules_index[i]];
+            glBegin   (GL_POINTS);
+            glColor3f (color.r,color.g,color.b);
+            glVertex3f(particule.position.x, particule.position.y, particule.position.z);
+            glEnd();
+            nb++;
+        }
+    }
+    else
+    {
+        for(int i = 0;i != 8;++i)
+        {
+            display_particules(tree.children[i],color,nb);
+        }
+
+    }
+}
+
+void display_octree(OctTree &tree,int index,int profondeur,int delta,int max_index,int &nb)
+{
+    if(profondeur == 0)
+    {
+        Color color = generate_color(index,max_index);
+        display_particules(tree,color,nb);
+    }
+    else
+    {
+        if(tree.leaf)
+        {
+            Color color = generate_color(index,max_index);
+            display_particules(tree,color,nb);
+        }
+        else
+        {
+            for(int i = 0;i != 8;++i)
+            {
+                display_octree(tree.children[i],index+i*delta,profondeur-1,delta/8,max_index,nb);
+            }
+        }
+    }
 }
 
 void Display_SDL2
@@ -160,7 +208,7 @@ void Display_SDL2
 
 	if (g_showAxes)
 		ShowAxes();
-
+/*
     for(int i = 0;i != NB_TOTAL_CLUSTER;++i)
     {
         Cluster &cluster = clusters[i];
@@ -175,9 +223,25 @@ void Display_SDL2
             glEnd();
 
         }
-    }
+    }*/
 
 
+
+
+    /*for(int i = 0;i != NB_PARTICLES;++i)
+    {
+        Particule &particule = model->particules[i];
+        glBegin   (GL_POINTS);
+        glColor3f (1, 1, 1);
+        glVertex3f(particule.position.x, particule.position.y, particule.position.z);
+        glEnd();
+    }*/
+    int nb = 0;
+    const int profondeur = 0;
+
+    display_octree(model->root,0,profondeur,(1<<(profondeur*3))>>3,1<<(profondeur*3),nb);
+
+    std::cout << "displayed " << nb << " particules" << std::endl;
 
 	glMatrixMode  (GL_PROJECTION);
 	glLoadIdentity();
@@ -188,6 +252,8 @@ void Display_SDL2
 	SDL_GL_SwapWindow(window);
 	SDL_UpdateWindowSurface(window);
 }
+
+
 
 
 void Display_SDL2

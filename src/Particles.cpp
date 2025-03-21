@@ -1,5 +1,9 @@
 #include "Particles.hpp"
 
+Particule *OctTree::particules;
+
+
+
 Particles::
 Particles(const int n_particles)
 : x(n_particles),

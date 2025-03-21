@@ -27,12 +27,12 @@ void Model_CPU_naive
 
 				if (dij < 1.0)
 				{
-					dij = 10.0;
+                    dij = 2.0;
 				}
 				else
 				{
 					dij = std::sqrt(dij);
-					dij = 10.0 / (dij * dij * dij);
+                    dij = 2.0 / (dij * dij * dij);
 				}
 
                 particules[i].acceleration += diff * dij * particules[j].mass;
@@ -42,7 +42,7 @@ void Model_CPU_naive
 
     for (int i = 0; i < NB_PARTICLES; i++)
 	{
-        particules[i].velocity += particules[i].acceleration*2;
-        particules[i].position += particules[i].velocity * 0.1;
+        particules[i].velocity += particules[i].acceleration;
+        particules[i].position += particules[i].velocity;
 	}
 }

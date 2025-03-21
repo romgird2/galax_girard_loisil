@@ -78,10 +78,10 @@ int main(int argc, char ** argv)
 
     std::unique_ptr<Display> display;
     if (display_type == "NO")
-        display = std::unique_ptr<Display>(new Display_NO(model->particules,model->clusters));
+        display = std::unique_ptr<Display>(new Display_NO(model.get()));
 #ifdef GALAX_DISPLAY_SDL2
     else if (display_type == "SDL2")
-        display = std::unique_ptr<Display>(new Display_SDL2(model->particules,model->clusters));
+        display = std::unique_ptr<Display>(new Display_SDL2(model.get()));
 #endif
     else // TODO : add exception
         exit(EXIT_FAILURE);

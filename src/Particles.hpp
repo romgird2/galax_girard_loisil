@@ -15,17 +15,11 @@ struct Particles
 	Particles(const int n_particles);
 };
 
-#define NB_THREAD 8
-#define NB_CLUSTER_PER_THREAD 64
-
-#define NB_TOTAL_CLUSTER (NB_THREAD*NB_CLUSTER_PER_THREAD)
 #define NB_PARTICLES 10000
+#define NB_THREADS 8
 
 
-#define MAX_PARTICULES_PER_CLUSTER (2*(NB_PARTICLES/NB_TOTAL_CLUSTER))
-#define MIN_PARTICULES_PER_CLUSTER ((NB_PARTICLES/NB_TOTAL_CLUSTER)/2)
-
-#define MIN_DISTANCE_FUSE 20
+#define PARTICULES_BEFORE_SEPARATION 5
 
 class Vector3
 {
@@ -126,76 +120,136 @@ public:
         acceleration.set(0,0,0);
     }
 };
-
-class Cluster
+#include <stdlib.h>
+class OctTree
 {
 public:
-    int complexity;
-    int particules[MAX_PARTICULES_PER_CLUSTER];
-    float distance_from_center[MAX_PARTICULES_PER_CLUSTER];
-    int nb_particules;
-
-    float total_mass;
+    static Particule *particules;
     Vector3 center;
     float radius;
-
-    void init_total_mass(Particule *particules_array)
-    {
-        total_mass = 0;
-        for(int i = 0;i != nb_particules;++i)
-            total_mass += particules_array[particules[i]].mass;
-    }
-
-    void calculate_properties(Particule *particules_array)
-    {
-        calculate_center(particules_array);
-        radius = 0;
-        for(int i = 0;i != nb_particules;++i)
-        {
-            Particule &current_particule = particules_array[particules[i]];
-            float delta_x = std::abs(center.x-current_particule.position.x);
-            float delta_y = std::abs(center.y-current_particule.position.y);
-            float delta_z = std::abs(center.z-current_particule.position.z);
-            distance_from_center[i] = std::max(delta_x,std::max(delta_y,delta_z));
-            if(distance_from_center[i] > radius) radius = distance_from_center[i];
-        }
-    }
+    Vector3 center_mass;
+    float mass;
+    OctTree *children;
+    bool leaf;
+    int particules_index[PARTICULES_BEFORE_SEPARATION-1];
+    int nb_particules;
 
 
-    void calculate_center(Particule *particules_array)
-    {
-        center.set(0,0,0);
-        for(int i = 0;i != nb_particules;++i)
-        {
-            Particule &current_particule = particules_array[particules[i]];
-            center += current_particule.position*current_particule.mass;
-        }
-        center /= total_mass;
-    }
-
-    void steal(Cluster &other_cluster,int index,Particule *particules_array)
-    {
-        int absolute_id = other_cluster.particules[index];
-        Particule &stealed_particule = particules_array[absolute_id];
-        other_cluster.total_mass -= stealed_particule.mass;
-        total_mass += stealed_particule.mass;
-        particules[nb_particules] = absolute_id;
-
-        std::memmove(&other_cluster.particules[index],
-                    &other_cluster.particules[index+1],
-                    sizeof(int)*(other_cluster.nb_particules-index-1));
-
-
-        nb_particules++;
-        other_cluster.nb_particules--;
-        calculate_center(particules_array);
-        other_cluster.calculate_center(particules_array);
+    OctTree() {
 
     }
-
-
-    Cluster() {
+    void init(Vector3 ncenter,float nradius)
+    {
+        center = ncenter;
+        radius = nradius;
+        leaf = true;
         nb_particules = 0;
+    }
+
+    void clear()
+    {
+        if(!leaf)
+        {
+            for(int i = 0;i != 8;++i)
+                children[i].clear();
+            delete children;
+        }
+    }
+
+    void pre_compute()
+    {
+        mass = 0;
+        center_mass.set(0,0,0);
+        if(leaf)
+        {
+            for(int i = 0;i != nb_particules;++i)
+            {
+                float mass_particule = particules[i].mass;
+                mass += mass_particule;
+                center_mass += particules[i].position*mass_particule;
+            }
+            if(mass != 0)
+                center_mass /= mass;
+        }
+        else
+        {
+            for(int i = 0;i != NB_THREADS;++i)
+            {
+                children[i].pre_compute();
+                float mass_children = children[i].mass;
+                mass += mass_children;
+                center_mass += children[i].center_mass*mass_children;
+            }
+            if(mass != 0)
+                center_mass /= mass;
+        }
+    }
+
+    void compute_acceleration()
+    {
+
+    }
+
+    void unleaf()
+    {
+        float half_radius = radius/2;
+        float bottom_x = center.x-half_radius;
+        float bottom_y = center.y-half_radius;
+        float bottom_z = center.z-half_radius;
+        float top_x = center.x+half_radius;
+        float top_y = center.y+half_radius;
+        float top_z = center.z+half_radius;
+
+
+        children = new OctTree[8]; // make reinstantiate
+
+        children[0].init(Vector3(bottom_x,bottom_y,bottom_z),half_radius);
+        children[1].init(Vector3(top_x,bottom_y,bottom_z),half_radius);
+        children[2].init(Vector3(bottom_x,top_y,bottom_z),half_radius);
+        children[3].init(Vector3(top_x,top_y,bottom_z),half_radius);
+
+        children[4].init(Vector3(bottom_x,bottom_y,top_z),half_radius);
+        children[5].init(Vector3(top_x,bottom_y,top_z),half_radius);
+        children[6].init(Vector3(bottom_x,top_y,top_z),half_radius);
+        children[7].init(Vector3(top_x,top_y,top_z),half_radius);
+        leaf = false;
+
+    }
+
+
+    void put_into_children(int &particule_index,Vector3 &position)
+    {
+        int children_index = (position.x > center.x) | ((position.y > center.y)<<1) | ((position.z > center.z)<<2);
+        OctTree &children_target = children[children_index];
+        children_target.particules_index[children_target.nb_particules++] = particule_index;
+    }
+
+
+    void insert(Vector3& position,int& particule)
+    {
+        if(leaf)
+        {
+            if(nb_particules == PARTICULES_BEFORE_SEPARATION-1)
+            {
+                unleaf();
+                for(int i = 0;i != nb_particules;++i)
+                {
+                    int particule_index = particules_index[i];
+                    Vector3 &position_target = particules[particules_index[i]].position;
+                    put_into_children(particule_index,position_target);
+                }
+                put_into_children(particule,position);
+            }
+            else
+            {
+                particules_index[nb_particules++] = particule;
+            }
+        }
+        else
+        {
+            int children_index = (position.x > center.x) | ((position.y > center.y)<<1) | ((position.z > center.z)<<2);
+            children[children_index].insert(position,particule);
+        }
     }
 };
 

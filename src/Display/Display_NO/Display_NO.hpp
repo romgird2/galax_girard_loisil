@@ -10,7 +10,7 @@ class Display_NO : public Display
 private:
     static bool interrupt_received;
 public:
-    Display_NO(Particule *particules,Cluster *clusters);
+    Display_NO(Model_CPU_fast *model);
 	~Display_NO();
 
 	virtual void update(bool& done);

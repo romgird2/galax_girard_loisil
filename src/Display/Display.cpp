@@ -1,8 +1,8 @@
 #include "Display.hpp"
 
 Display
-::Display(Particule *particules,Cluster *clusters)
-    : particules(particules),clusters(clusters)
+::Display(Model_CPU_fast *model)
+    : model(model)
 {
 }
 

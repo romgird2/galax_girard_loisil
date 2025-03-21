@@ -8,282 +8,151 @@
 #include <omp.h>
 #include <ranges>
 
-namespace xs = xsimd;
-using b_type = xs::batch<float, xs::avx2>;
-void computeBounds(const Particule* particles, int num_particles, Vector3& min_pos, Vector3& max_pos) {
-    if (num_particles == 0) return;
-
-    min_pos = particles[0].position;
-    max_pos = particles[0].position;
-
-    for (int i = 1; i < num_particles; ++i) {
-        const Vector3& pos = particles[i].position;
-        min_pos.x = std::min(min_pos.x, pos.x);
-        min_pos.y = std::min(min_pos.y, pos.y);
-        min_pos.z = std::min(min_pos.z, pos.z);
-        max_pos.x = std::max(max_pos.x, pos.x);
-        max_pos.y = std::max(max_pos.y, pos.y);
-        max_pos.z = std::max(max_pos.z, pos.z);
-    }
-}
-
-bool particules_x_sorting (int i,int j) { return (i<j); }
-
-bool particules_y_sorting (int i,int j) { return (i<j); }
-
-bool particules_z_sorting (int i,int j) { return (i<j); }
-
-void separate_particles(const Particule* particles,Cluster *clusters,std::vector<int> &particles_id,std::vector<int> &clusters_id,int cord_index)
-{
-    if(clusters_id.size() == 0) return;
-    if(clusters_id.size() == 1)
-    {
-        if(particles_id.size() > MAX_PARTICULES_PER_CLUSTER)
-            throw std::exception();
-        Cluster &cluster = clusters[clusters_id.at(0)];
-        cluster.nb_particules = particles_id.size();
-        for(int i = 0;i != particles_id.size();++i)
-            cluster.particules[i] = particles_id[i];
-
-        return;
-    }
-
-    auto f = [particles] (int i,int j, auto field) {
-            return particles[i].position.*field < particles[j].position.*field;
-        };
-
-    switch(cord_index)
-    {
-    case 0:
-        std::sort(particles_id.begin(),particles_id.end(),[particles,f ](int i, int j) {return f(i,j,&Vector3::x);});
-        break;
-    case 1:
-        std::sort(particles_id.begin(),particles_id.end(),[particles,f ](int i, int j) {return f(i,j,&Vector3::y);});
-        break;
-    default:
-        std::sort(particles_id.begin(),particles_id.end(),[particles,f ](int i, int j) {return f(i,j,&Vector3::z);});
-        break;
-    }
-
-
-
-    std::size_t const half_size = particles_id.size() / 2;
-    std::vector<int> split_lo(particles_id.begin(), particles_id.begin() + half_size);
-    std::vector<int> split_hi(particles_id.begin() + half_size, particles_id.end());
-
-    std::size_t const half_size_clusters = clusters_id.size() / 2;
-    std::vector<int> split_lo_clusters(clusters_id.begin(), clusters_id.begin() + half_size_clusters);
-    std::vector<int> split_hi_clusters(clusters_id.begin() + half_size_clusters, clusters_id.end());
-
-    separate_particles(particles,clusters,split_lo,split_hi_clusters,cord_index+1%3);
-    separate_particles(particles,clusters,split_hi,split_lo_clusters,cord_index+1%3);
-}
-
 
 Model_CPU_fast::Model_CPU_fast(const Initstate& initstate, Particule *particles)
 : Model_CPU(initstate, particles)
 {
+    omp_set_num_threads(NB_THREADS);
 
-
-    for(int i = 0;i != NB_TOTAL_CLUSTER;++i)
-        threads[i].init(NB_CLUSTER_PER_THREAD*i);
-
-
-    std::vector<int> particules_id(NB_PARTICLES),clusters_id(NB_TOTAL_CLUSTER);
-
+    int sorted_x_indexes[NB_PARTICLES],sorted_y_indexes[NB_PARTICLES],sorted_z_indexes[NB_PARTICLES];
     for(int i = 0;i != NB_PARTICLES;++i)
-        particules_id[i] = i;
-
-    for(int i = 0;i != NB_TOTAL_CLUSTER;++i)
-        clusters_id[i] = i;
-
-    separate_particles(particules,clusters,particules_id,clusters_id,0);
-
-    for(int i = 0;i != NB_TOTAL_CLUSTER;++i)
     {
-        Cluster &cluster = clusters[i];
-        cluster.init_total_mass(particules);
-        distance_matrix_clusters[i][i] = 0;
+        sorted_x_indexes[i] = NB_PARTICLES-i-1;
+        sorted_y_indexes[i] = i;
+        sorted_z_indexes[i] = i;
     }
+    std::sort(&sorted_x_indexes[0],&sorted_x_indexes[NB_PARTICLES],[this] (int i,int j) {return particules[i].position.x < particules[j].position.x;});
+    std::sort(&sorted_y_indexes[0],&sorted_y_indexes[NB_PARTICLES],[this] (int i,int j) {return particules[i].position.y < particules[j].position.y;});
+    std::sort(&sorted_z_indexes[0],&sorted_z_indexes[NB_PARTICLES],[this] (int i,int j) {return particules[i].position.z < particules[j].position.z;});
+    origin = Vector3(particules[sorted_x_indexes[NB_PARTICLES/2]].position.x,
+                    particules[sorted_y_indexes[NB_PARTICLES/2]].position.y,
+                    particules[sorted_z_indexes[NB_PARTICLES/2]].position.z);
+
+    OctTree::particules = particles;
+
+
+    particules_repartition = new int**[NB_THREADS];
+    for(int i = 0;i != NB_THREADS;++i)
+    {
+        particules_repartition[i] = new int*[NB_THREADS];
+        for(int j = 0;j != NB_THREADS;++j)
+            particules_repartition[i][j] = new int[NB_PARTICLES/NB_THREADS+NB_THREADS];
+    }
+
+    nb_particules_repartition = new int*[NB_THREADS];
+    for(int i = 0;i != NB_THREADS;++i)
+        nb_particules_repartition[i] = new int[NB_THREADS];
+
+    root.init(Vector3(0,0,0),1);
 }
 
-void Model_CPU_fast::balance_threads()
-{
-    int min_complexity = threads->complexity_total,min_complexity_id = 0,
-        max_complexity = threads->complexity_total,max_complexity_id = 0;
 
-    for(int i = 1;i != NB_THREAD;++i)
-    {
-        int &complexity = threads[i].complexity_total;
-        if(complexity < min_complexity)
-        {
-            min_complexity = complexity;
-            min_complexity_id = i;
-        }
-        if(complexity > max_complexity)
-        {
-            max_complexity = complexity;
-            max_complexity_id = i;
-        }
-    }
 
-    Thread_Composition &thread_not_enough = threads[min_complexity_id];
-    Thread_Composition &thread_too_much = threads[max_complexity_id];
-    int cluster_id_id_min = 0,
-        cluster_id_id_max = 0;
-    int cluster_complexity_min = clusters[thread_too_much.clusters_ids[cluster_id_id_min]].complexity;
-    int cluster_complexity_max = clusters[thread_not_enough.clusters_ids[cluster_id_id_max]].complexity;
-
-    for(int i = 1;i != NB_CLUSTER_PER_THREAD;++i)
-    {
-
-        int &cluster_id_not_enough = thread_not_enough.clusters_ids[i];
-        Cluster &cluster_not_enough = clusters[cluster_id_not_enough];
-
-        int &cluster_id_too_much = thread_too_much.clusters_ids[i];
-        Cluster &cluster_too_much = clusters[cluster_id_too_much];
-
-        if(cluster_too_much.complexity > cluster_complexity_max)
-        {
-            cluster_complexity_max = cluster_too_much.complexity;
-            cluster_id_id_max = i;
-        }
-        if(cluster_not_enough.complexity < cluster_complexity_min)
-        {
-            cluster_complexity_min = cluster_not_enough.complexity;
-            cluster_id_id_min = i;
-        }
-    }
-    std::swap(thread_too_much.clusters_ids[cluster_id_id_max],thread_not_enough.clusters_ids[cluster_id_id_min]);
-
-}
-
-bool balance_between(Cluster &current_cluster,Cluster &target_cluster,Particule *particules)
-{
-    if(current_cluster.nb_particules > MIN_PARTICULES_PER_CLUSTER && target_cluster.nb_particules+1 < MAX_PARTICULES_PER_CLUSTER)
-    {
-        for(int i = 0;i != current_cluster.nb_particules;++i)
-        {
-            Particule &current_particule = particules[current_cluster.particules[i]];
-            float delta_x = std::abs(target_cluster.center.x-current_particule.position.x);
-            float delta_y = std::abs(target_cluster.center.y-current_particule.position.y);
-            float delta_z = std::abs(target_cluster.center.z-current_particule.position.z);
-            float distance_from_target = std::max(delta_x,std::max(delta_y,delta_z));
-            if(distance_from_target+MIN_DISTANCE_FUSE < current_cluster.distance_from_center[i])
-            {
-                target_cluster.steal(current_cluster,i,particules);
-                return true;
-            }
-        }
-    }
-    return false;
-}
 
 void Model_CPU_fast
 ::step()
 {
-    #pragma omp parallel for
-    for(int i = 0;i != NB_THREAD;++i)
-    {
-        Thread_Composition& thread = threads[i];
-        thread.calculate_properties(particules,clusters);
-    }
 
-    #pragma omp parallel for
-    for(int i = 0;i != NB_TOTAL_CLUSTER;++i)
+    root.clear();
+
+    int *max_x = new int[NB_THREADS],*max_y = new int[NB_THREADS],*max_z = new int[NB_THREADS];
+    int *min_x = new int[NB_THREADS],*min_y = new int[NB_THREADS],*min_z = new int[NB_THREADS];
+
+
+    #pragma omp parallel
     {
-        Cluster &current_cluster = clusters[i];
-        for(int j = 0;j != i;++j)
+        int thread_id = omp_get_thread_num();
+
+        std::cout << "repartition initial " << thread_id << std::endl;
+
+        int start = thread_id * (NB_PARTICLES / NB_THREADS);
+        int end = (thread_id == NB_THREADS - 1) ? NB_PARTICLES : (thread_id + 1) * (NB_PARTICLES / NB_THREADS);
+
+        int **particules_repartition_thread = particules_repartition[thread_id];
+        int *nb_particules_repartition_thread = nb_particules_repartition[thread_id];
+        for(int i = 0;i != 8;++i)
+            nb_particules_repartition_thread[i] = 0;
+        int &max_x_thread = max_x[thread_id],&max_y_thread = max_y[thread_id],&max_z_thread = max_z[thread_id];
+        int &min_x_thread = min_x[thread_id],&min_y_thread = min_y[thread_id],&min_z_thread = min_z[thread_id];
+
+        max_x_thread = 0;max_y_thread = 0;max_z_thread = 0;
+        min_x_thread = 0;min_y_thread = 0;min_z_thread = 0;
+        for(int i = start;i != end;++i)
         {
-            Cluster &target_cluster = clusters[j];
-            float distance = (current_cluster.center-target_cluster.center).norm();
-            distance_matrix_clusters[i][j] = distance;
-            distance_matrix_clusters[j][i] = distance;
+            Vector3& position = particules[i].position;
+            if(position.x > max_x_thread) max_x_thread = position.x;
+            if(position.x < min_x_thread) min_x_thread = position.x;
+
+            if(position.y > max_y_thread) max_y_thread = position.y;
+            if(position.y < min_y_thread) min_y_thread = position.y;
+
+            if(position.z > max_z_thread) max_z_thread = position.z;
+            if(position.z < min_z_thread) min_z_thread = position.z;
+
+            int part_index = (position.x > origin.x) | ((position.y > origin.y)<<1) | ((position.z > origin.z)<<2);
+            particules_repartition_thread[part_index][nb_particules_repartition_thread[part_index]++] = i;
         }
     }
 
-    bool updated[NB_TOTAL_CLUSTER];
-    for(int i = 0;i != NB_TOTAL_CLUSTER;++i)
-        updated[i] = true;
-    for(int i = 0;i != NB_TOTAL_CLUSTER;++i)
+    int global_max_x = 0, global_max_y = 0, global_max_z = 0;
+    int global_min_x = 0, global_min_y = 0, global_min_z = 0;
+
+    for (int i = 0; i < NB_THREADS; ++i) {
+        if (max_x[i] > global_max_x) global_max_x = max_x[i];
+        if (max_y[i] > global_max_y) global_max_y = max_y[i];
+        if (max_z[i] > global_max_z) global_max_z = max_z[i];
+
+        if (min_x[i] < global_min_x) global_min_x = min_x[i];
+        if (min_y[i] < global_min_y) global_min_y = min_y[i];
+        if (min_z[i] < global_min_z) global_min_z = min_z[i];
+    }
+
+    int max_abs_diff = std::max({
+        global_max_x - origin.x,
+        global_max_y - origin.y,
+        global_max_z - origin.z,
+        origin.x - global_min_x,
+        origin.y - global_min_y,
+        origin.z - global_min_z
+    });
+
+    root.init(origin,max_abs_diff);
+    root.unleaf();
+
+
+    #pragma omp parallel
     {
-        Cluster &current_cluster = clusters[i];
-        for(int target_cluster_id = 0;target_cluster_id != i;++target_cluster_id)
+        int thread_id = omp_get_thread_num();
+        std::cout << "repartition into 8 " << thread_id << std::endl;
+        OctTree &target = root.children[thread_id];
+
+        for(int i = 0;i != NB_THREADS;++i)
         {
-            if(updated[i] && updated[target_cluster_id])
+            int *particules_repartition_thread = particules_repartition[i][thread_id];
+            int nb_particule_repartition_thread = nb_particules_repartition[i][thread_id];
+            for(int j = 0;j != nb_particule_repartition_thread;++j)
             {
-                Cluster &target_cluster = clusters[target_cluster_id];
-                if(distance_matrix_clusters[i][target_cluster_id] < std::max(current_cluster.radius,target_cluster.radius))
-                {
-                    if(current_cluster.nb_particules > target_cluster.nb_particules)
-                    {
-                        if(balance_between(current_cluster,target_cluster,particules))
-                        {
-                            float distance = (target_cluster.center-current_cluster.center).norm();
-                            distance_matrix_clusters[i][target_cluster_id] = distance;
-                            distance_matrix_clusters[target_cluster_id][i] = distance;
-                            updated[i] = false;
-                            goto stop_updating_cluster;
-                        }
-                        if(balance_between(target_cluster,current_cluster,particules))
-                        {
-                            float distance = (target_cluster.center-current_cluster.center).norm();
-                            distance_matrix_clusters[i][target_cluster_id] = distance;
-                            distance_matrix_clusters[target_cluster_id][i] = distance;
-                            updated[target_cluster_id] = false;
-                            goto stop_updating_cluster;
-                        }
-                    }
-                    else
-                    {
-                        if(balance_between(target_cluster,current_cluster,particules))
-                        {
-                            float distance = (target_cluster.center-current_cluster.center).norm();
-                            distance_matrix_clusters[i][target_cluster_id] = distance;
-                            distance_matrix_clusters[target_cluster_id][i] = distance;
-                            updated[target_cluster_id] = false;
-                            goto stop_updating_cluster;
-                        }
-                        if(balance_between(current_cluster,target_cluster,particules))
-                        {
-                            float distance = (target_cluster.center-current_cluster.center).norm();
-                            distance_matrix_clusters[i][target_cluster_id] = distance;
-                            distance_matrix_clusters[target_cluster_id][i] = distance;
-                            updated[i] = false;
-                            goto stop_updating_cluster;
-                        }
-                    }
-                }
+                int particule_index = particules_repartition_thread[j];
+                target.insert(particules[particule_index].position,particule_index);
             }
         }
-        stop_updating_cluster:;
+        target.pre_compute();
     }
 
-
-    #pragma omp parallel for
-    for(int i = 0;i < NB_THREAD;++i)
+    #pragma omp parallel
     {
-        Thread_Composition& thread = threads[i];
-        thread.execute(particules,clusters,distance_matrix_clusters);
+        int thread_id = omp_get_thread_num();
+        std::cout << "calculate 8 " << thread_id << std::endl;
+
+        OctTree &target = root.children[thread_id];
+        target.compute_acceleration();
     }
-
-
-
-    balance_threads();
-
-    float max_radius = 0;
-    for(int i = 0;i != NB_TOTAL_CLUSTER;++i)
-    {
-        if(clusters[i].radius > max_radius)
-            max_radius = clusters[i].radius;
-    }
-std::cout << "max radius is " << max_radius << std::endl;
 
     for(int i = 0;i != NB_PARTICLES;++i)
     {
         Particule& particule = particules[i];
         particule.velocity += particule.acceleration;
-        particule.position += particule.velocity;
+        //particule.position += particule.velocity;
     }
 }
 
