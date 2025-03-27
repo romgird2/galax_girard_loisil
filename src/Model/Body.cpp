@@ -78,15 +78,12 @@ void Body::update_force(const Body &b)
 
     float dij = diff.normSqr();
 
-    if (dij < 1.0)
-    {
-        dij = 2.0;
-    }
-    else
-    {
-        dij = std::sqrt(dij);
-        dij = 2.0 / (dij * dij * dij);
-    }
+    const float dij_sq = diff.normSqr();
+
+    const float inv_factor = (dij_sq >= 1.0f)
+                                 ? (1.0f / (dij_sq * _mm_cvtss_f32(_mm_sqrt_ss(_mm_set_ss(dij_sq)))))
+                                 : 1.0f;
+    const float factor = 2.0f * b.mass * inv_factor;
 
     acceleration += diff * (dij * b.mass);
 }
