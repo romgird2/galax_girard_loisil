@@ -84,24 +84,3 @@ void Model_CPU_BH::step()
         particles.z[i] = bodies[i].pos.z;
     }
 }
-
-void Model_CPU_BH::thread_insert(int index)
-{
-    orders[index] = 1;
-    cv.notify_all();
-}
-
-void Model_CPU_BH::thread_proc(int index)
-{
-    while(true) {
-        std::unique_lock<std::mutex> lock(mutexes[index]);
-        cv.wait(lock, [index, this]{std::osyncstream(std::cout) << "Test CV thread " << index << std::endl; return this->orders[index]==1;});
-        std::osyncstream(std::cout) << "Start of thread" << index << std::endl;
-        for(auto& b : bodies_per_thread[index]) {
-            trees[index]->insert(b);
-        }
-        std::osyncstream(std::cout) << "End of thread" << index << std::endl;
-        orders[index] = 0;
-        insert_done->count_down();
-    }
-}
