@@ -59,6 +59,7 @@ double Body::dist_sq(Body const & b) const {
 
 float Vector3::normSqr() const
 {
+    return _mm_cvtss_f32(_mm_dp_ps(simd, simd, 0x71));
     return x*x+y*y+z*z;
 }
 
