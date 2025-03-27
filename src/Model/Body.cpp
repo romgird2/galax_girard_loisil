@@ -92,9 +92,10 @@ void Body::update_force(const Body& b) {
     const Vector3 diff = b.pos - pos;
 
     const float dij_sq = diff.normSqr();
+    const float dij = invSqrt(dij_sq);
 
     const float inv_factor = (dij_sq >= 1.0f)
-                                 ? (2.0f / (dij_sq * _mm_cvtss_f32(_mm_sqrt_ss(_mm_set_ss(dij_sq)))))
+                                 ? (2.0f *dij*dij*dij)
                                  : 2.0f;
     const float factor = b.mass * inv_factor;
 
