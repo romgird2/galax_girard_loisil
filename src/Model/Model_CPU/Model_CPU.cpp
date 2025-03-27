@@ -8,7 +8,7 @@ Model_CPU::Model_CPU(const Initstate& initstate, Particule *particules)
     for (int i = 0; i < NB_PARTICLES; i++)
 	{
         particules[i].position.set(initstate.positionsx[i],initstate.positionsy[i],initstate.positionsz[i]);
-        particules[i].velocity.set(initstate.velocitiesx[i]*0.1,initstate.velocitiesy[i]*0.1,initstate.velocitiesz[i]*0.1);
+        particules[i].velocity.set(initstate.velocitiesx[i],initstate.velocitiesy[i],initstate.velocitiesz[i]);
         particules[i].mass = initstate.masses[i];
     }
 }

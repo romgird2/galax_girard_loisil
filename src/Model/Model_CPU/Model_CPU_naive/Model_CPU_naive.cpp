@@ -42,7 +42,7 @@ void Model_CPU_naive
 
     for (int i = 0; i < NB_PARTICLES; i++)
 	{
-        particules[i].velocity += particules[i].acceleration;
-        particules[i].position += particules[i].velocity;
+        particules[i].velocity += particules[i].acceleration*2;
+        particules[i].position += particules[i].velocity*0.1;
 	}
 }

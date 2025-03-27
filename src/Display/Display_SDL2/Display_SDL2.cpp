@@ -82,7 +82,7 @@ Color generate_color(int id, int max_id) {
     return {r, g, b};
 }
 
-void display_particules(OctTree &tree,Color& color,int &nb)
+void display_particules(OctTree &tree,Color& color)
 {
     if(tree.leaf)
     {
@@ -93,42 +93,55 @@ void display_particules(OctTree &tree,Color& color,int &nb)
             glColor3f (color.r,color.g,color.b);
             glVertex3f(particule.position.x, particule.position.y, particule.position.z);
             glEnd();
-            nb++;
+
         }
     }
     else
     {
         for(int i = 0;i != 8;++i)
         {
-            display_particules(tree.children[i],color,nb);
+            display_particules(tree.children[i],color);
         }
 
     }
 }
 
-void display_octree(OctTree &tree,int index,int profondeur,int delta,int max_index,int &nb)
+int hash32shift(int key)
+{
+    key = ~key + (key << 15); // key = (key << 15) - key - 1;
+    key = key ^ (key >> 12);
+    key = key + (key << 2);
+    key = key ^ (key >> 4);
+    key = key * 2057; // key = (key + (key << 3)) + (key << 11);
+    key = key ^ (key >> 16);
+    return key;
+}
+
+void display_octree(OctTree &tree,int index,int profondeur,int delta,int max_index)
 {
     if(profondeur == 0)
     {
-        Color color = generate_color(index,max_index);
-        display_particules(tree,color,nb);
+        Color color = generate_color(hash32shift(index),max_index);
+        display_particules(tree,color);
     }
     else
     {
         if(tree.leaf)
         {
-            Color color = generate_color(index,max_index);
-            display_particules(tree,color,nb);
+            //Color color = generate_color(index,max_index);
+            //display_particules(tree,color);
         }
         else
         {
             for(int i = 0;i != 8;++i)
             {
-                display_octree(tree.children[i],index+i*delta,profondeur-1,delta/8,max_index,nb);
+                display_octree(tree.children[i],index+i*delta,profondeur-1,delta>>3,max_index);
             }
         }
     }
 }
+
+int profondeur = 0;
 
 void Display_SDL2
 ::update(bool& done)
@@ -153,7 +166,11 @@ void Display_SDL2
 				g_showAxes = !g_showAxes;
 			else if (event.key.keysym.sym == SDLK_ESCAPE)
 				done = true;
-		}
+            else if(event.key.keysym.sym == SDLK_UP)
+                profondeur++;
+            else if(event.key.keysym.sym == SDLK_DOWN)
+                profondeur--;
+        }
 
 		if (e == SDL_QUIT)
 		{
@@ -236,12 +253,9 @@ void Display_SDL2
         glVertex3f(particule.position.x, particule.position.y, particule.position.z);
         glEnd();
     }*/
-    int nb = 0;
-    const int profondeur = 0;
 
-    display_octree(model->root,0,profondeur,(1<<(profondeur*3))>>3,1<<(profondeur*3),nb);
 
-    std::cout << "displayed " << nb << " particules" << std::endl;
+    display_octree(model->root,0,profondeur,(1<<(profondeur*3))>>3,1<<(profondeur*3));
 
 	glMatrixMode  (GL_PROJECTION);
 	glLoadIdentity();

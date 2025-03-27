@@ -19,7 +19,7 @@ struct Particles
 #define NB_THREADS 8
 
 
-#define PARTICULES_BEFORE_SEPARATION 5
+#define PARTICULES_BEFORE_SEPARATION 2
 
 class Vector3
 {
@@ -164,16 +164,16 @@ public:
         {
             for(int i = 0;i != nb_particules;++i)
             {
-                float mass_particule = particules[i].mass;
+                float mass_particule = particules[particules_index[i]].mass;
                 mass += mass_particule;
-                center_mass += particules[i].position*mass_particule;
+                center_mass += particules[particules_index[i]].position*mass_particule;
             }
             if(mass != 0)
                 center_mass /= mass;
         }
         else
         {
-            for(int i = 0;i != NB_THREADS;++i)
+            for(int i = 0;i != 8;++i)
             {
                 children[i].pre_compute();
                 float mass_children = children[i].mass;
@@ -185,9 +185,124 @@ public:
         }
     }
 
-    void compute_acceleration()
-    {
+    #define THETA 0
+    #define THETA_SQR (THETA*THETA)
 
+    void compute_with(OctTree &target)
+    {
+        if((target.radius+radius) < (target.center-radius).norm()*THETA)
+        {
+            Vector3 diff = target.center_mass-center_mass;
+            float dij = diff.normSquared();
+
+            if (dij < 1.0)
+            {
+                dij = 10.0;
+            }
+            else
+            {
+                dij = std::sqrt(dij);
+                dij = 10.0 / (dij * dij * dij);
+            }
+
+            Vector3 delta = diff * dij * target.mass;
+            for(int i = 0;i != nb_particules;++i)
+                particules[particules_index[i]].acceleration += delta;
+
+        }
+        else
+        {
+            if(target.leaf)
+            {
+                for(int i = 0;i != nb_particules;++i)
+                {
+                    for(int j = 0;j != target.nb_particules;++j)
+                    {
+                        int particule_index_i = particules_index[i];
+                        int particule_index_j = target.particules_index[j];
+                        if(i != j)
+                        {
+                            Particule &particulei = particules[particule_index_i];
+                            Particule &particulej = particules[particule_index_j];
+
+                            Vector3 diff = particulej.position-particulei.position;
+                            float dij = diff.normSquared();
+
+                            if (dij < 1.0)
+                            {
+                                dij = 10.0;
+                            }
+                            else
+                            {
+                                dij = std::sqrt(dij);
+                                dij = 10.0 / (dij * dij * dij);
+                            }
+
+                            particulei.acceleration += diff * dij * particulej.mass;
+                        }
+
+                    }
+                }
+            }
+            else
+            {
+                for(int i = 0;i != 8;++i)
+                {
+                    OctTree &new_target = target.children[i];
+                    if(new_target.nb_particules != 0)
+                        compute_with(new_target);
+                }
+            }
+        }
+    }
+
+    void compute_acceleration(OctTree &root)
+    {
+        if(nb_particules == 0) return;
+        if(leaf)
+        {
+            compute_with(root);
+        }
+        else
+        {
+            for(int i = 0;i != 8;++i)
+            {
+                children[i].compute_acceleration(root);
+            }
+        }
+    }
+
+    void print()
+    {
+        print(0);
+    }
+
+    void print(int profondeur)
+    {
+        if(leaf)
+        {
+            for(int i = 0;i != profondeur;++i)
+                std::cout << "\t";
+            std::cout << "[";
+            for(int i = 0;i != nb_particules;++i)
+            {
+                std::cout << particules_index[i];
+                if(i != nb_particules-1)
+                    std::cout << ";";
+            }
+            std::cout << "]";
+            std::cout << std::endl;
+        }
+        else
+        {
+            for(int i = 0;i != profondeur;++i)
+                std::cout << "\t";
+            std::cout << "[]";
+            for(int i = 0;i != 8;++i)
+            {
+                children[i].print(profondeur+1);
+            }
+        }
     }
 
     void unleaf()
@@ -221,7 +336,8 @@ public:
     {
         int children_index = (position.x > center.x) | ((position.y > center.y)<<1) | ((position.z > center.z)<<2);
         OctTree &children_target = children[children_index];
-        children_target.particules_index[children_target.nb_particules++] = particule_index;
+        children_target.particules_index[children_target.nb_particules] = particule_index;
+        children_target.nb_particules++;
     }
 
 
@@ -229,20 +345,25 @@ public:
     {
         if(leaf)
         {
+            //std::cout << nb_particules << std::endl;
             if(nb_particules == PARTICULES_BEFORE_SEPARATION-1)
             {
                 unleaf();
+                //std::cout << "unleafing" << std::endl;
                 for(int i = 0;i != nb_particules;++i)
                 {
                     int particule_index = particules_index[i];
                     Vector3 &position_target = particules[particules_index[i]].position;
                     put_into_children(particule_index,position_target);
                 }
-                put_into_children(particule,position);
+                int children_index = (position.x > center.x) | ((position.y > center.y)<<1) | ((position.z > center.z)<<2);
+                children[children_index].insert(position,particule);
             }
             else
             {
-                particules_index[nb_particules++] = particule;
+                //std::cout << "unleafing" << std::endl;
+                particules_index[nb_particules] = particule;
+                nb_particules++;
             }
         }
         else

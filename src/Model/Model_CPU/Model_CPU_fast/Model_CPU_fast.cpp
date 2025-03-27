@@ -53,6 +53,8 @@ void Model_CPU_fast
 ::step()
 {
 
+
+
     root.clear();
 
     int *max_x = new int[NB_THREADS],*max_y = new int[NB_THREADS],*max_z = new int[NB_THREADS];
@@ -63,7 +65,7 @@ void Model_CPU_fast
     {
         int thread_id = omp_get_thread_num();
 
-        std::cout << "repartition initial " << thread_id << std::endl;
+        //std::cout << "repartition initial " << thread_id << std::endl;
 
         int start = thread_id * (NB_PARTICLES / NB_THREADS);
         int end = (thread_id == NB_THREADS - 1) ? NB_PARTICLES : (thread_id + 1) * (NB_PARTICLES / NB_THREADS);
@@ -79,6 +81,7 @@ void Model_CPU_fast
         min_x_thread = 0;min_y_thread = 0;min_z_thread = 0;
         for(int i = start;i != end;++i)
         {
+            particules[i].acceleration.set(0,0,0);
             Vector3& position = particules[i].position;
             if(position.x > max_x_thread) max_x_thread = position.x;
             if(position.x < min_x_thread) min_x_thread = position.x;
@@ -91,6 +94,7 @@ void Model_CPU_fast
 
             int part_index = (position.x > origin.x) | ((position.y > origin.y)<<1) | ((position.z > origin.z)<<2);
             particules_repartition_thread[part_index][nb_particules_repartition_thread[part_index]++] = i;
+
         }
     }
 
@@ -116,6 +120,11 @@ void Model_CPU_fast
         origin.z - global_min_z
     });
 
+    delete[] max_x;delete[] max_y;delete[] max_z;
+    delete[] min_x;delete[] min_y;delete[] min_z;
+
+
+
     root.init(origin,max_abs_diff);
     root.unleaf();
 
@@ -123,7 +132,7 @@ void Model_CPU_fast
     #pragma omp parallel
     {
         int thread_id = omp_get_thread_num();
-        std::cout << "repartition into 8 " << thread_id << std::endl;
+        //std::cout << "repartition into 8 " << thread_id << std::endl;
         OctTree &target = root.children[thread_id];
 
         for(int i = 0;i != NB_THREADS;++i)
@@ -134,6 +143,7 @@ void Model_CPU_fast
             {
                 int particule_index = particules_repartition_thread[j];
                 target.insert(particules[particule_index].position,particule_index);
+
             }
         }
         target.pre_compute();
@@ -142,17 +152,22 @@ void Model_CPU_fast
     #pragma omp parallel
     {
         int thread_id = omp_get_thread_num();
-        std::cout << "calculate 8 " << thread_id << std::endl;
+        //std::cout << "calculate 8 " << thread_id << std::endl;
 
         OctTree &target = root.children[thread_id];
-        target.compute_acceleration();
+        target.compute_acceleration(root);
     }
+
+
+    float mass = 0;
+
 
     for(int i = 0;i != NB_PARTICLES;++i)
     {
         Particule& particule = particules[i];
-        particule.velocity += particule.acceleration;
-        //particule.position += particule.velocity;
+        particule.velocity += particule.acceleration*2;
+        particule.position += particule.velocity*0.1;
+        mass += particule.mass;
     }
 }
 

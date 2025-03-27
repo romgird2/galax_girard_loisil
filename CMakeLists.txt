@@ -16,7 +16,7 @@ option(GALAX_LINK_OMP  "Link with the OMP  library (used for CPU_FAST model)"   
 # Enable C++11
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-#add_compile_options(-Ofast -O3 -march=native -ftree-vectorize)
+add_compile_options(-Ofast -O3 -march=native -ftree-vectorize)
 
 # Specify bin path
 set (EXECUTABLE_OUTPUT_PATH bin/)
