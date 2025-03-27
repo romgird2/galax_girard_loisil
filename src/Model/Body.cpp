@@ -6,10 +6,7 @@
 
 
 float Vector3::dist_sq(Vector3 const & v) const {
-    /*__m128 diff = _mm_sub_ps(simd, v.simd);
-    __m128 squared = _mm_mul_ps(diff, diff);
-    return _mm_cvtss_f32(_mm_dp_ps(squared, squared, 0x71));*/
-    return (v.x-x)*(v.x-x)+(v.y-y)*(v.y-y)+(v.z-z)*(v.z-z);
+    return (*this-v).normSqr();
 }
 
 Vector3 Vector3::med(const Vector3 &v)
@@ -42,24 +39,18 @@ Vector3 Vector3::operator*(float f) const
 {
     Vector3 res;
     res.simd = _mm_mul_ps(simd, _mm_set1_ps(f));
-    /*res.x = f*x;
-    res.y = f*y;
-    res.z = f*z;*/
     return res;
 }
 
 void Vector3::operator/=(float f)
 {
-    /*x /=f;
-    y /=f;
-    z /=f;*/
     simd = _mm_div_ps(simd, _mm_set1_ps(f));
 }
 
 bool Vector3::operator==(const Vector3 &v) const
 {
     __m128 cmp = _mm_cmpeq_ps(simd, v.simd);
-    return (_mm_movemask_ps(cmp) & 0x7) == 0x7; // Only check x/y/z
+    return (_mm_movemask_ps(cmp) & 0x7) == 0x7;
 }
 
 double Body::dist_sq(Body const & b) const {
@@ -69,7 +60,6 @@ double Body::dist_sq(Body const & b) const {
 float Vector3::normSqr() const
 {
     return x*x+y*y+z*z;
-    //return _mm_cvtss_f32(_mm_dp_ps(simd, simd, 0x71));
 }
 
 float invSqrt( float number ){
@@ -97,6 +87,9 @@ void Body::update_force(const Body& b) {
     const float inv_factor = (dij_sq >= 1.0f)
                                  ? (2.0f *dij*dij*dij)
                                  : 2.0f;
+
+    // or ? (2.0f/ (dij_sq * _mm_cvtss_f32(_mm_sqrt_ss(_mm_set_ss(dij_sq)))))
+
     const float factor = b.mass * inv_factor;
 
     acceleration += diff * factor;
