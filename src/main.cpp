@@ -18,122 +18,163 @@
 
 int main(int argc, char ** argv)
 {
-	// class for CLI (Command Line Instructions) management
-	CLI::App app{"Galax"};
+    // class for CLI (Command Line Instructions) management
+    CLI::App app{"Galax"};
 
-	// maximum number of particles to be simulated
-	const int max_n_particles = 81920;
+    // maximum number of particles to be simulated
+    const int max_n_particles = 81920;
 
-	// according to compile option (in cmake), use a graphical display or don't
+// according to compile option (in cmake), use a graphical display or don't
 #ifdef GALAX_DISPLAY_SDL2
-	std::string  display_type = "SDL2";
+    std::string  display_type = "SDL2";
 #else
-	std::string  display_type = "NO";
+    std::string  display_type = "NO";
 #endif
 
-	// core version used by default : CPU
-	std::string  core         = "CPU";
+    // core version used by default : CPU
+    std::string  core         = "CPU";
 
-	// number of particles used by default : 2000
-	unsigned int n_particles  = 2000;
+    // number of particles used by default : 2000
+    unsigned int n_particles  = 2000;
 
-        // decide wether to check particle position against the reference or not
-		bool validatePositions = true;
+    // decide wether to check particle position against the reference or not
+    bool validatePositions = false;
+    bool benchmark = false;
 
-	// define CLI arguments
-	app.add_option("-c,--core"       , core       , "computing version")
-	    ->check(CLI::IsMember({"CPU", "GPU", "CPU_FAST"}));
-	app.add_option("-n,--n-particles", n_particles , "number of displayed particles")
-	    ->check(CLI::Range(0,max_n_particles));
-	app.add_option("--display"       , display_type, "disable graphical display")
-	    ->check(CLI::IsMember({"SDL2", "NO"}));
-	app.add_flag("--validate", validatePositions, "compute error in positions against the non-accelerated reference code");
+    // define CLI arguments
+    app.add_option("-c,--core"       , core       , "computing version")
+        ->check(CLI::IsMember({"CPU", "GPU", "CPU_FAST"}));
+    app.add_option("-n,--n-particles", n_particles , "number of displayed particles")
+        ->check(CLI::Range(0,max_n_particles));
+    app.add_option("--display"       , display_type, "disable graphical display")
+        ->check(CLI::IsMember({"SDL2", "NO"}));
+    app.add_flag("--validate", validatePositions, "compute error in positions against the non-accelerated reference code");
+    app.add_flag("--benchmark", benchmark);
+    // parse arguments
+    CLI11_PARSE(app, argc, argv);
 
-	// parse arguments
-	CLI11_PARSE(app, argc, argv);
+    // No need to validate if we are using the ref code as main simulation
+    //validatePositions = !(core == "CPU");
 
-        // No need to validate if we are using the ref code as main simulation
-        //validatePositions = !(core == "CPU");
-
-	// class used to measure timing and fps
-	Timing timing;
-
-	// load particles initial position into initstate
-	Initstate initstate(n_particles);
-
-	// particles positions
-	Particles particles(n_particles);
-	Particles particlesRef(n_particles);
-
-	// init display
-	std::unique_ptr<Display> display;
-	if (display_type == "NO")
-		display = std::unique_ptr<Display>(new Display_NO(particles));
-#ifdef GALAX_DISPLAY_SDL2
-	else if (display_type == "SDL2")
-		display = std::unique_ptr<Display>(new Display_SDL2(particles));
-#endif
-    else { // TODO : add exception
-        std::cout << "fail" << std::endl;
-        std::cout << display_type << std::endl;
-		exit(EXIT_FAILURE);
+    std::vector<int> number_of_particles;
+    if(benchmark) {
+        number_of_particles.insert(number_of_particles.end(), {2000,4000,6000,8000,10000});
+    }
+    else {
+        number_of_particles.push_back(n_particles);
     }
 
-	// init models
-	std::unique_ptr<Model> model, referenceModel;
+    struct BenchmarkResult {
+        int n_p;
+        std::vector<float> fps;
+    };
+
+    std::vector<BenchmarkResult> results;
+
+    for(int n_p : number_of_particles) {
+        // class used to measure timing and fps
+        Timing timing;
+
+        // load particles initial position into initstate
+        Initstate initstate(n_p);
+
+        // particles positions
+        Particles particles(n_p);
+        Particles particlesRef(n_p);
+
+        // init display
+        std::unique_ptr<Display> display;
+        if (display_type == "NO" || benchmark)
+            display = std::unique_ptr<Display>(new Display_NO(particles));
+#ifdef GALAX_DISPLAY_SDL2
+        else if (display_type == "SDL2")
+            display = std::unique_ptr<Display>(new Display_SDL2(particles));
+#endif
+        else { // TODO : add exception
+            std::cout << "fail" << std::endl;
+            std::cout << display_type << std::endl;
+            exit(EXIT_FAILURE);
+        }
+
+        // init models
+        std::unique_ptr<Model> model, referenceModel;
 
         if(validatePositions)
-		referenceModel = std::make_unique<Model_CPU_naive>(initstate, particlesRef);
+            referenceModel = std::make_unique<Model_CPU_naive>(initstate, particlesRef);
 
-	if (core == "CPU")
+        if (core == "CPU")
             model = std::make_unique<Model_CPU_BH>(initstate,particles);
-            //model = std::make_unique<Model_CPU_naive>(initstate, particles);
+        //model = std::make_unique<Model_CPU_naive>(initstate, particles);
 #ifdef GALAX_MODEL_CPU_FAST
-	else if (core == "CPU_FAST")
-		model = std::make_unique<Model_CPU_fast>(initstate, particles);
+        else if (core == "CPU_FAST")
+            model = std::make_unique<Model_CPU_fast>(initstate, particles);
 #endif
 #ifdef GALAX_MODEL_GPU
-	else if (core == "GPU")
-		model = std::make_unique<Model_GPU>(initstate, particles);
+        else if (core == "GPU")
+            model = std::make_unique<Model_GPU>(initstate, particles);
 #endif
-    else { // TODO : add exception
-        std::cout << "fail" << std::endl;
-        std::cout << core << std::endl;
-		exit(EXIT_FAILURE);
+        else { // TODO : add exception
+            std::cout << "fail" << std::endl;
+            std::cout << core << std::endl;
+            exit(EXIT_FAILURE);
+        }
+
+        bool done = false;
+
+        std::cout << std::setw(3);
+
+        int n_steps = 0;
+        std::vector<float> fps_vector;
+
+        if(benchmark)
+            std::cout << "Benchmark " << n_p << std::endl;
+
+        while (!done)
+        {
+            if(benchmark && n_steps > 200)
+                break;
+            // display particles
+            display->update(done);
+
+            // We only want to time the computation of the model
+            // not its display
+            timing.sample_before();
+
+            // update particles positions
+            model  ->step();
+
+            timing.sample_after();
+            float fps = timing.get_current_average_FPS();
+
+            std::cout << "Step " << n_steps++ << ", State updates per second: " << fps;
+
+            if(fps != 0)
+                fps_vector.push_back(fps);
+
+            if(validatePositions)
+            {
+                referenceModel->step();
+                float average_error, error_min, error_max;
+                std::tie(error_min, error_max, average_error) = model->compareParticlesState(*referenceModel, /*returnRelativeDistances*/ true);
+                std::cout << " ;               average distance vs reference: " << average_error
+                          << "; min error : " << error_min << "; max error : " << error_max;
+            }
+            std::cout << "\r" << std::flush;
+        }
+
+        results.push_back(BenchmarkResult { n_p, fps_vector});
+
     }
 
-	bool done = false;
+    std::ofstream file(std::string("benchmark_") + std::to_string(std::time(0)));
+    for(auto& result : results) {
+        file << "n_p: " << result.n_p << '\n';
+        file << "fps: ";
+        for(float f : result.fps)
+            file << f << ',';
+        file << std::endl;
+    }
 
-	std::cout << std::setw(3);
-
-	while (!done)
-	{
-		// display particles
-		display->update(done);
-
-		// We only want to time the computation of the model
-		// not its display
-		timing.sample_before();
-
-		// update particles positions
-		model  ->step();
-
-		timing.sample_after();
-		float fps = timing.get_current_average_FPS();
-
-		std::cout << "State updates per second: " << fps;
-
-		if(validatePositions)
-		{
-			referenceModel->step();
-                        float average_error, error_min, error_max;
-                        std::tie(error_min, error_max, average_error) = model->compareParticlesState(*referenceModel, /*returnRelativeDistances*/ true);
-			std::cout << " ;               average distance vs reference: " << average_error
-                                  << "; min error : " << error_min << "; max error : " << error_max;
-		}
-		std::cout << "\r" << std::flush;
-	}
-
-	return EXIT_SUCCESS;
+    return EXIT_SUCCESS;
 }
 
