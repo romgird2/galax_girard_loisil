@@ -101,8 +101,6 @@ void Body::operator+=(const Body &b)
 {
     double mt = mass + b.mass;
     pos = pos*mass + b.pos*b.mass;
-    spd = {0,0,0};//spd*mass + b.spd*b.mass;
-    acceleration = {0,0,0};//acc*mass + b.acc*b.mass;
     pos /= mt;
     mass += b.mass;
 }
