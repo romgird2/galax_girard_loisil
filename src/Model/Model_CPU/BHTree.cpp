@@ -88,14 +88,15 @@ int BHTree::height() {
 }
 
 void BHTree::update_force(Body& b) {
-    if(mass_center.mass == 0 || mass_center == b){
+    if(mass_center.mass == 0){
         return;
     }
     if(is_leaf()) {
-        b.update_force(mass_center);
+        if(mass_center == b)
+            b.update_force(mass_center);
     }
     else {
-        if(region.width / std::sqrt(mass_center.dist_sq(b)) < theta) {
+        if(region.width*region.width / mass_center.dist_sq(b) < theta*theta) {
             b.update_force(mass_center);
         }
         else {
