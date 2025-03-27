@@ -107,5 +107,5 @@ void Body::operator+=(const Body &b)
 
 bool Body::operator==(const Body &b) const
 {
-    return b.pos == pos;
+    return b.pos.x == pos.x;
 }
