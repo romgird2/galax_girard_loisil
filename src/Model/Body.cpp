@@ -67,7 +67,7 @@ double Body::dist_sq(Body const & b) const {
     return pos.dist_sq(b.pos);
 }
 
-float Vector3::normSqr() const
+float Vector3::norm_sqr() const
 {
     return x*x+y*y+z*z;
     //return _mm_cvtss_f32(_mm_dp_ps(simd, simd, 0x71));
@@ -92,7 +92,7 @@ float invSqrt( float number ){
 void Body::update_force(const Body& b) {
     const Vector3 diff = b.pos - pos;
 
-    const float dij_sq = diff.normSqr();
+    const float dij_sq = diff.norm_sqr();
     //const float dij = invSqrt(dij_sq);
 
     const float inv_factor = (dij_sq >= 1.0f)

@@ -13,6 +13,7 @@ Model_CPU_BH::Model_CPU_BH(const Initstate &initstate, Particles &particles) : M
         b.spd = {0.1f * initstate.velocitiesx[i], 0.1f * initstate.velocitiesy[i], 0.1f * initstate.velocitiesz[i]};
         b.mass = initstate.masses[i];
         bodies.push_back(b);
+        // Calculating the radius of the region
         if(std::abs(b.pos.x) > radius) {
             radius = std::abs(b.pos.x);
         }
@@ -34,9 +35,10 @@ void Model_CPU_BH::step()
     radius = 0.0;
  
     Region r;
-    r.center = {0.0,0.0,0.0};
+    r.center = last_mass_center;
     for(auto & v : bodies_per_thread)
         v.clear();
+    // Calculating which thread will consider each particle by calculating the octant where each particle is located
     for(auto& b : bodies) {
         size_t dir = (b.pos.x > r.center.x) | ((b.pos.y > r.center.y) << 1) | ((b.pos.z > r.center.z) << 2);
         if(std::abs(b.pos.x) > radius) {
@@ -53,10 +55,12 @@ void Model_CPU_BH::step()
     r.width = 2*radius;
     r.width_sqr = r.width*r.width;
 
+    // Creation of 8 trees
     for(int i = 0; i < 8 ;i++){
         trees[i] = (std::make_unique<BHTree>(r.get_sub(Direction{i})));
     }
 
+    // Parallel insertion
     #pragma omp parallel for
     for(int i = 0; i < 8; i++) {
         for(auto& b : bodies_per_thread[i]) {
@@ -70,6 +74,7 @@ void Model_CPU_BH::step()
         b.acceleration = {0.0,0.0,0.0};
     }
 
+    // Parallel force calculation
     #pragma omp parallel for
     for(auto& b : bodies) {
         tree.update_force(b);

@@ -3,14 +3,14 @@
 
 #include "../Model_CPU.hpp"
 #include "../../Body.hpp"
-#include <condition_variable>
-#include <latch>
-#include <mutex>
-#include <thread>
 #include <vector>
 #include <array>
 #include "../BHTree.hpp"
 
+/**
+ * @brief The Model_CPU_BH class
+ * Barnes-Hut NBody simulation
+ */
 class Model_CPU_BH : public Model_CPU
 {
 public:
@@ -21,7 +21,9 @@ public:
     virtual void step();
 private:
     std::vector<Body> bodies;
+    // Repartition of particles for each thread for tree creation
     std::array<std::vector<Body>,8> bodies_per_thread;
+    // Tree created by each thread
     std::array<std::unique_ptr<BHTree>,8> trees;
     double radius;
     Vector3 last_mass_center = {0.0, 0.0, 0.0};

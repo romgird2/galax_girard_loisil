@@ -3,15 +3,16 @@
 #include <iostream>
 #include <fstream>
 
-inline int stid(bool b) {
+inline int s(bool b) {
     return b ? 1 : -1;
 }
 
 Region Region::get_sub(Direction dir) {
+    float quarter_width = width/4;
     Region res;
-    res.center.z = center.z + (width/4)*stid(dir >> 2);
-    res.center.y = center.y + (width/4)*stid((dir >> 1) & 1);
-    res.center.x = center.x + (width/4)*stid(dir & 1);
+    res.center.z = center.z + quarter_width*s(dir >> 2);
+    res.center.y = center.y + quarter_width*s((dir >> 1) & 1);
+    res.center.x = center.x + quarter_width*s(dir & 1);
     res.width = width / 2.0;
     res.width_sqr = res.width*res.width;
     return res;
@@ -36,7 +37,6 @@ BHTree::BHTree(Region region, std::array<std::unique_ptr<BHTree>, 8>& c) : regio
 }
 
 void BHTree::insert(Body b) {
-    size_t dir = (b.pos.x > region.center.x) | ((b.pos.y > region.center.y) << 1) | ((b.pos.z > region.center.z) << 2);
     if(mass_center.mass == 0) {
         mass_center = b;
         return;
@@ -47,18 +47,9 @@ void BHTree::insert(Body b) {
     }
     else {
         leaf = false;
-        float quarter_width = region.width/4;
-        float half_width = region.width/2;
-        float width_sqr = half_width*half_width;
         for(int i = 0;i != 8;++i)
         {
-            Region res;
-            res.center.z = region.center.z + quarter_width*stid(i >> 2);
-            res.center.y = region.center.y + quarter_width*stid((i >> 1) & 1);
-            res.center.x = region.center.x + quarter_width*stid(i & 1);
-            res.width = half_width;
-            res.width_sqr = width_sqr;
-            children[i] = std::make_unique<BHTree>(res);
+            children[i] = std::make_unique<BHTree>(region.get_sub(Direction{i}));
         }
         add(mass_center);
         add(b);
