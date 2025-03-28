@@ -6,6 +6,4 @@ This project contains an implementation of the Barnes-Hut algorithm for the N-Bo
 
 Usage is the same as the original project.
 
-A --benchmark flag has been added to do FPS benchmarks on 2000,4000,6000,8000 and 10000 particles
-
-![alt text](maxresdefault.jpg)
+A --benchmark flag has been added to do FPS benchmarks on 2000,4000,6000,8000 and 10000 particles.
