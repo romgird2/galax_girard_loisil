@@ -16,12 +16,19 @@ option(GALAX_LINK_OMP  "Link with the OMP  library (used for CPU_FAST model)"   
 # Enable C++11
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+add_compile_options(-Ofast -O3 -march=native -ftree-vectorize)
 
 # Specify bin path
 set (EXECUTABLE_OUTPUT_PATH bin/)
 
 if(WIN32)
-    set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/modules/")
+    list(APPEND CMAKE_PREFIX_PATH "modules/SDL2-2.30.11/")
+    list(APPEND CMAKE_PREFIX_PATH "modules/freeglut-3.6.0/")
+    list(APPEND CMAKE_PREFIX_PATH "modules/mingw64/")
+    list(APPEND CMAKE_PREFIX_PATH "modules/glew/")
+    list(APPEND CMAKE_PREFIX_PATH "modules/doxygen/")
+
+
 endif()
 
 # Generate the source files lists
@@ -29,24 +36,36 @@ set(SRC_FILES_CUDA    ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model_GPU/kernel.cu
                       ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model_GPU/Model_GPU.cpp)
 
 set(SRC_FILES_DISPLAY ${CMAKE_CURRENT_SOURCE_DIR}/src/Display/Display.cpp
+                      ${CMAKE_CURRENT_SOURCE_DIR}/src/Display/Display.hpp
                       ${CMAKE_CURRENT_SOURCE_DIR}/src/Display/Display_SDL2/Display_SDL2.cpp
+                      ${CMAKE_CURRENT_SOURCE_DIR}/src/Display/Display_SDL2/Display_SDL2.hpp
+
                       ${CMAKE_CURRENT_SOURCE_DIR}/src/Display/Display_NO/Display_NO.cpp
-                      ${CMAKE_CURRENT_SOURCE_DIR}/src/Particles.cpp)
+                      ${CMAKE_CURRENT_SOURCE_DIR}/src/Display/Display_NO/Display_NO.hpp
+                      ${CMAKE_CURRENT_SOURCE_DIR}/src/Particles.cpp
+                      ${CMAKE_CURRENT_SOURCE_DIR}/src/Particles.hpp
+                  )
 
 set(SRC_FILES_MAIN    ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model.cpp
-                      ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model.hpp
                       ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model_CPU/Model_CPU.cpp
-                      ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model_CPU/Model_CPU.hpp
                       ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model_CPU/Model_CPU_naive/Model_CPU_naive.cpp
                       ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model_CPU/Model_CPU_fast/Model_CPU_fast.cpp
-                      ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model_CPU/Model_CPU_naive/Model_CPU_naive.hpp
-                      ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model_CPU/Model_CPU_fast/Model_CPU_fast.hpp
                       ${CMAKE_CURRENT_SOURCE_DIR}/src/Initstate.cpp
-                      ${CMAKE_CURRENT_SOURCE_DIR}/src/Initstate.hpp
                       ${CMAKE_CURRENT_SOURCE_DIR}/src/Timing/Timing.cpp
-                      ${CMAKE_CURRENT_SOURCE_DIR}/src/Timing/Timing.hpp
                       ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
-
+                  set(SRC_FILES_MAIN    ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model.cpp
+                                        ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model.hpp
+                                        ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model_CPU/Model_CPU.cpp
+                                        ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model_CPU/Model_CPU.hpp
+                                        ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model_CPU/Model_CPU_naive/Model_CPU_naive.cpp
+                                        ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model_CPU/Model_CPU_fast/Model_CPU_fast.cpp
+                                        ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model_CPU/Model_CPU_naive/Model_CPU_naive.hpp
+                                        ${CMAKE_CURRENT_SOURCE_DIR}/src/Model/Model_CPU/Model_CPU_fast/Model_CPU_fast.hpp
+                                        ${CMAKE_CURRENT_SOURCE_DIR}/src/Initstate.cpp
+                                        ${CMAKE_CURRENT_SOURCE_DIR}/src/Initstate.hpp
+                                        ${CMAKE_CURRENT_SOURCE_DIR}/src/Timing/Timing.cpp
+                                        ${CMAKE_CURRENT_SOURCE_DIR}/src/Timing/Timing.hpp
+                                        ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp)
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/config.hpp.in" "${CMAKE_CURRENT_BINARY_DIR}/src/config.hpp" @ONLY)
 include_directories (PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/src/")
 
@@ -59,14 +78,6 @@ add_executable(galax ${SRC_FILES_MAIN}
     src/Model/Model_CPU/BHTree.hpp src/Model/Model_CPU/BHTree.cpp
     src/Model/Body.hpp src/Model/Body.cpp
     src/Model/Model_CPU/Model_CPU_fast/model_cpu_bh.hpp src/Model/Model_CPU/Model_CPU_fast/model_cpu_bh.cpp)
-
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    target_compile_options(galax PRIVATE
-        -O2  # Add any flags here
-        -march=native
-    )
-endif()
-add_compile_options(-msse4.1)
 
 # cli
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/lib/cli/include/CLI/CLI.hpp")
@@ -119,12 +130,17 @@ if(GALAX_LINK_CUDA)
     endif(CUDA_FOUND)
 endif(GALAX_LINK_CUDA)
 
+if(GALAX_LINK_FAST_CPU)
+    target_compile_definitions(galax         PUBLIC GALAX_MODEL_CPU_FAST)
+endif(GALAX_LINK_FAST_CPU)
+
+
 if(GALAX_LINK_SDL2)
     target_compile_definitions(galax_display PUBLIC GALAX_DISPLAY_SDL2)
     target_compile_definitions(galax         PUBLIC GALAX_DISPLAY_SDL2)
 
     # Find OpenGL
-    find_package(OpenGL REQUIRED QUIET)
+    find_package(OpenGL REQUIRED)
     if(OPENGL_FOUND)
         message(STATUS "Galax - Library found: OPENGL")
         message(STATUS ${OPENGL_INCLUDE_DIR})
@@ -156,4 +172,3 @@ if(GALAX_LINK_SDL2)
         target_link_libraries(galax_display PUBLIC ${SDL2_LIBRARIES})
     endif(SDL2_FOUND)
 endif(GALAX_LINK_SDL2)
-

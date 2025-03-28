@@ -108,8 +108,8 @@ void Body::update_force(const Body& b) {
 
 void Body::update_pos()
 {
-    spd += acceleration;
-    pos += spd;
+    spd += acceleration*2;
+    pos += spd*2;
 }
 
 void Body::operator+=(const Body &b)

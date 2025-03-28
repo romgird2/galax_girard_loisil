@@ -102,22 +102,10 @@ int main(int argc, char ** argv)
         if(validatePositions)
             referenceModel = std::make_unique<Model_CPU_naive>(initstate, particlesRef);
 
-        if (core == "CPU")
-            model = std::make_unique<Model_CPU_BH>(initstate,particles);
-        //model = std::make_unique<Model_CPU_naive>(initstate, particles);
-#ifdef GALAX_MODEL_CPU_FAST
-        else if (core == "CPU_FAST")
-            model = std::make_unique<Model_CPU_fast>(initstate, particles);
-#endif
-#ifdef GALAX_MODEL_GPU
-        else if (core == "GPU")
-            model = std::make_unique<Model_GPU>(initstate, particles);
-#endif
-        else { // TODO : add exception
-            std::cout << "fail" << std::endl;
-            std::cout << core << std::endl;
-            exit(EXIT_FAILURE);
-        }
+
+        model = std::make_unique<Model_CPU_BH>(initstate,particles);
+
+
 
         bool done = false;
 
@@ -128,6 +116,7 @@ int main(int argc, char ** argv)
 
         if(benchmark)
             std::cout << "Benchmark " << n_p << std::endl;
+
 
         while (!done)
         {
@@ -141,7 +130,8 @@ int main(int argc, char ** argv)
             timing.sample_before();
 
             // update particles positions
-            model  ->step();
+            if((n_steps &1) == 0)
+                model  ->step();
 
             timing.sample_after();
             float fps = timing.get_current_average_FPS();
